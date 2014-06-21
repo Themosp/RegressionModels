@@ -1,0 +1,66 @@
+## Is manual transmission trully more economic in fuell comsumption?
+========================================================
+
+### 1. Executive Summary
+It is a widely spread belief that manual transmission cars behave better than automatic ones, as far as fuell consumption is concerned. People often believe that changing gears manually results in better fuel management and that automatic transmission cars, although easier to drive, tend to have lower miles per galon productivity.
+
+The scope of this paper is to answer two major questions in regards to this belief:
+  -Is automatic or manual transmission better for MPG?
+  -How different is the MPG between cars with automatic and manual transmissions?
+
+Our analysis will be based on the MTCARS (Motor Trend Car Road Tests) R dataset. The MTCARS data was extracted from the 1974 Motor Trend US magazine, and comprises fuel consumption and 10 aspects of automobile design and performance for 32 automobiles (1973–74 models). 
+
+As we will see, although manual transmission cars in general do have higher MPG, yet, the MPG difference with the automatic ones may vary considerably, strongly affected by other characteristics like the cylinders of the engine or the total car weight. 
+
+### 2. Exploratory analysis and inference
+The answer to the first question comes easily from just inspecting a simple boxplot (Fig. 1) of the Miles Per Gallon over the type of transmission. We may easily see that manual transmission cars have significantly higher average MPG than automatic transmission cars.
+
+```{r 'Exploratory Analysis',echo=FALSE,fig.width=5,fig.height=4}
+data(mtcars)
+boxplot(mpg~am,data=mtcars,xlab="Transmition",ylab='Miles Per Galon',fill=mtcars$am, main='Fig. 1 MPG over Transmission type',names=c("Automatic","Manual"),col=c("orange","green"))
+```
+This may be verified by some inference analysis using a **T** test:
+```{r 'Inference',echo=FALSE}
+means<-t.test(formula=mpg~am,data=mtcars)
+print(means)
+```
+As we see, the mean MPG for the manual transmission cars (group 1) is **`r means$estimate[2]`**, about **`r means$estimate[2]-means$estimate[1]`** higher than that of the automatic cars (group 0).
+
+### 3. Regression Analysis.
+In order to quantify the difference in the MPG between automatic and manual transmission cars, we will use linear regression analysis. First we shall create a simple linear model of *MPG* and *AM*. 
+```{r}
+simple_model<-lm(mpg~am,data=mtcars)
+summary(simple_model)
+```
+This model does not offer us any additional information than that of the T test. The **Intercept** (`r simple_model$coefficients[1]`) represents the mean MPG for automatic cars, while the **AM coefficient**  (`r simple_model$coefficients[2]`), is the difference between the MPG of manual and automatic transmission cars, which matche exactly the results the T test produced. We therefore conclude that the *MPG* is affected by additional variables. In order to determine these variables we shall examine the correlation between the MPG and the rest of the variables.
+```{r}
+sort(cor(mtcars)[1,])
+```
+We see that the top varialbles related to *MPG* are: Wheight (wt), Number of Cylinders (cyl), Engine Displacement (disp) and Horse Power (hp), with conciderable differenece to the rest of the variables (keep in mind that in correlation, low negative numbers are as important as high positive ones). However, displacement is strongly related to the number of cylinders, so we shall include only the "wt","cyl"and "hp"" variables in a new model that we shall create and compare to the simple MPG~AM model.
+```{r}
+new_model<-lm(mpg~wt+cyl+hp+am,data=mtcars)
+best_model<-anova(simple_model,new_model)
+print(best_model)
+```
+The comparison shows a very small ***p-value*** of `r best_model[2,6]`, which allows us to reject the **Null Hypothesis** that the simple model may explain the *MPG* variable better, and thus opt for the multivariable model.
+
+### 4. Examine the residuals
+Before concluding, we should examine the residuals plot.
+```{r,fig.width=8,fig.height=7}
+par(mfrow=c(2,2))
+plot(new_model)
+```
+Generaly we cannot notice anything extremely pequliar. The *Normal Q-Q* plot shows that the residuals are normaly distributed and the *Residuals vs Fitted* and *Scale Location* plots do not show any specific patterns. We may notice some outliers in the *Residuals vs Leverage* plot, but these are well within the Cook\'s Distance limits, so even if we removed them it would not change our model significantly.
+
+### 5. Conclusion
+Lastly, we shall analyse the new multivariable model to see how MPG is affected by each variable.
+```{r}
+summary(new_model)
+```
+First of all the *R-squared* is `r summary(new_model)$r.squared`, indicating that a great part of the variance is explained by this model. 
+According to the model, weight and number of cylinders have a negative effect on mileage. Specifically,
+
+  - The *MPG* of a car decreases by **`r summary(new_model)$coefficients[2,1]`** for every **1000lbs** of extra weight.
+  - Each extra cylinder decreases the *MPG* by a factor of **`r summary(new_model)$coefficients[3,1]`**.
+  - The car's HP does not affect consumption dramatically.
+  - Generally, cars with manual transmission, tend to produce **`r summary(new_model)$coefficients[5,1]`** times more *miles per gallon*, compared with automatic transmission cars with the same weight, cylinders and horsepower.
